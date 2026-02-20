@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/preview.png" alt="pd-radio preview" width="100%"></p>
+
 # PD Radio
 
 Public domain streaming radio powered by the [Internet Archive](https://archive.org).
