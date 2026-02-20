@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PD Radio — corvid-agent</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#08080f;--card:#12121a;--card-hover:#1a1a2a;
+    --purple:#8b5cf6;--cyan:#06b6d4;
+    --text:#e2e8f0;--text-dim:#94a3b8;--text-muted:#64748b;
+    --border:#1e1e2e;--radius:12px;
+  }
+  html{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  body{min-height:100vh;display:flex;flex-direction:column}
+
+  /* --- Header --- */
+  header{padding:1.25rem 2rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid var(--border);background:var(--card)}
+  .logo{display:flex;align-items:center;gap:.6rem;font-size:1.35rem;font-weight:700;letter-spacing:-.02em}
+  .logo svg{width:28px;height:28px}
+  .logo .pd{color:var(--purple)}.logo .radio{color:var(--cyan)}
+  .tagline{font-size:.8rem;color:var(--text-muted);margin-left:auto;white-space:nowrap}
+
+  /* --- Main layout --- */
+  main{flex:1;display:flex;flex-direction:column;max-width:1100px;width:100%;margin:0 auto;padding:1.5rem}
+
+  /* --- Station Grid --- */
+  .section-title{font-size:.75rem;text-transform:uppercase;letter-spacing:.12em;color:var(--text-muted);margin-bottom:.75rem}
+  .stations{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;margin-bottom:1.5rem}
+  .station{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:1.1rem 1rem;cursor:pointer;transition:all .2s;text-align:center;position:relative;overflow:hidden
+  }
+  .station:hover{background:var(--card-hover);border-color:var(--purple);transform:translateY(-2px)}
+  .station.active{border-color:var(--purple);box-shadow:0 0 20px rgba(139,92,246,.15)}
+  .station.active::after{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,var(--purple),var(--cyan))
+  }
+  .station-icon{font-size:1.8rem;margin-bottom:.4rem;display:block}
+  .station-name{font-weight:600;font-size:.95rem}
+  .station-desc{font-size:.7rem;color:var(--text-muted);margin-top:.2rem}
+
+  /* --- Now Playing --- */
+  .now-playing{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:1.25rem 1.5rem;margin-bottom:1rem
+  }
+  .np-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.14em;color:var(--cyan);margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
+  .np-label .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .np-title{font-size:1.15rem;font-weight:600;margin-bottom:.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .np-artist{font-size:.85rem;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* --- Player Controls --- */
+  .player{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap
+  }
+  .player button{
+    background:none;border:none;color:var(--text);cursor:pointer;padding:.35rem;
+    border-radius:8px;display:flex;align-items:center;justify-content:center;transition:all .15s
+  }
+  .player button:hover{color:var(--purple);background:rgba(139,92,246,.1)}
+  .player button svg{width:22px;height:22px}
+  .play-btn{
+    width:44px;height:44px;border-radius:50%!important;
+    background:var(--purple)!important;color:#fff!important
+  }
+  .play-btn:hover{background:#7c3aed!important;transform:scale(1.06)}
+  .play-btn svg{width:20px;height:20px}
+
+  /* Progress */
+  .progress-wrap{flex:1;min-width:180px;display:flex;align-items:center;gap:.6rem}
+  .time{font-size:.7rem;color:var(--text-muted);min-width:38px;text-align:center;font-variant-numeric:tabular-nums}
+  .progress-bar{flex:1;height:4px;background:var(--border);border-radius:4px;cursor:pointer;position:relative;overflow:hidden}
+  .progress-bar:hover{height:6px}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--cyan));border-radius:4px;width:0%;transition:width .3s linear}
+
+  /* Volume */
+  .volume-wrap{display:flex;align-items:center;gap:.5rem}
+  .volume-wrap svg{width:18px;height:18px;color:var(--text-muted);flex-shrink:0}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:80px;height:4px;background:var(--border);border-radius:4px;outline:none;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--cyan);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--cyan);border:none;cursor:pointer}
+
+  /* --- Track List --- */
+  .tracklist{margin-top:1rem}
+  .track-table{width:100%;border-collapse:collapse}
+  .track-table th{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);text-align:left;padding:.5rem .75rem;border-bottom:1px solid var(--border)}
+  .track-table td{padding:.55rem .75rem;font-size:.85rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+  .track-table tr:hover td{background:var(--card-hover)}
+  .track-table tr.active td{color:var(--cyan)}
+  .track-table .num{width:36px;color:var(--text-muted);text-align:center}
+
+  /* --- Status / Loading --- */
+  .status{text-align:center;padding:2.5rem 1rem;color:var(--text-muted);font-size:.9rem}
+  .spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--purple);border-radius:50%;animation:spin .7s linear infinite;margin-right:.5rem;vertical-align:middle}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* --- Footer --- */
+  footer{padding:1rem 2rem;text-align:center;font-size:.7rem;color:var(--text-muted);border-top:1px solid var(--border)}
+  footer a{color:var(--cyan);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+
+  /* --- Responsive --- */
+  @media(max-width:640px){
+    header{padding:1rem}
+    main{padding:1rem}
+    .stations{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+    .player{gap:.6rem;padding:.75rem 1rem}
+    input[type=range]{width:55px}
+    .tagline{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--purple)">
+      <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 010 8.49"/><path d="M19.07 4.93a10 10 0 010 14.14"/>
+      <path d="M7.76 16.24a6 6 0 010-8.49"/><path d="M4.93 19.07a10 10 0 010-14.14"/>
+    </svg>
+    <span><span class="pd">PD</span> <span class="radio">Radio</span></span>
+  </div>
+  <span class="tagline">Public Domain Streaming &mdash; corvid-agent</span>
+</header>
+
+<main>
+  <!-- Station selector -->
+  <p class="section-title">Stations</p>
+  <div class="stations" id="stations"></div>
+
+  <!-- Now Playing -->
+  <div class="now-playing" id="np-card">
+    <div class="np-label"><span class="dot" id="np-dot" style="display:none"></span><span id="np-label-text">Select a station to begin</span></div>
+    <div class="np-title" id="np-title">&mdash;</div>
+    <div class="np-artist" id="np-artist">&nbsp;</div>
+  </div>
+
+  <!-- Player bar -->
+  <div class="player">
+    <button title="Previous" onclick="prevTrack()">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+    </button>
+    <button class="play-btn" id="play-btn" title="Play / Pause" onclick="togglePlay()">
+      <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>
+      <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    </button>
+    <button title="Next" onclick="nextTrack()">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6z"/></svg>
+    </button>
+
+    <div class="progress-wrap">
+      <span class="time" id="time-cur">0:00</span>
+      <div class="progress-bar" id="progress-bar" onclick="seek(event)">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <span class="time" id="time-dur">0:00</span>
+    </div>
+
+    <div class="volume-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/>
+      </svg>
+      <input type="range" id="volume" min="0" max="1" step="0.01" value="0.7" oninput="setVolume(this.value)">
+    </div>
+  </div>
+
+  <!-- Track list -->
+  <div class="tracklist" id="tracklist"></div>
+</main>
+
+<footer>
+  Music sourced from the <a href="https://archive.org" target="_blank" rel="noopener">Internet Archive</a>. All tracks are in the public domain.
+  &nbsp;&bull;&nbsp; Built by <a href="https://github.com/corvid-agent" target="_blank" rel="noopener">corvid-agent</a>
+</footer>
+
+<script>
+/* ── Station definitions ─────────────────────────────────── */
+const STATIONS = [
+  { id:'classical', name:'Classical',icon:'\u{1F3BB}', desc:'Orchestral & chamber', query:'classical+music' },
+  { id:'jazz',      name:'Jazz',     icon:'\u{1F3B7}', desc:'Swing, bop & cool',   query:'jazz+music' },
+  { id:'blues',     name:'Blues',     icon:'\u{1F3B8}', desc:'Delta & Chicago',      query:'blues+music' },
+  { id:'folk',      name:'Folk',     icon:'\u{1F3B6}', desc:'Traditional & roots',  query:'folk+music' },
+  { id:'world',     name:'World',    icon:'\u{1F30D}', desc:'Global sounds',        query:'world+music' },
+  { id:'ambient',   name:'Ambient',  icon:'\u{1F30C}', desc:'Atmospheric textures', query:'ambient+music' },
+];
+
+/* ── State ───────────────────────────────────────────────── */
+let currentStation = null;
+let items = [];          // archive.org search results
+let tracks = [];         // playable files for current item
+let itemIndex = -1;
+let trackIndex = -1;
+let audio = new Audio();
+audio.volume = 0.7;
+
+/* ── Render stations ─────────────────────────────────────── */
+const stationsEl = document.getElementById('stations');
+STATIONS.forEach(s => {
+  const d = document.createElement('div');
+  d.className = 'station';
+  d.dataset.id = s.id;
+  d.innerHTML = `<span class="station-icon">${s.icon}</span><div class="station-name">${s.name}</div><div class="station-desc">${s.desc}</div>`;
+  d.onclick = () => selectStation(s);
+  stationsEl.appendChild(d);
+});
+
+/* ── Select station ──────────────────────────────────────── */
+async function selectStation(station) {
+  if (currentStation && currentStation.id === station.id) return;
+  currentStation = station;
+  document.querySelectorAll('.station').forEach(el => el.classList.toggle('active', el.dataset.id === station.id));
+
+  setNP('Loading...', '', true);
+  showTracklist([]);
+  audio.pause();
+  updatePlayIcon();
+
+  const url = `https://archive.org/advancedsearch.php?q=collection:audio+AND+mediatype:audio+AND+subject:${station.query}&fl=identifier,title,creator&rows=20&output=json&callback=`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    items = (data.response && data.response.docs) || [];
+    if (!items.length) { setNP('No results found', '', false); return; }
+    // shuffle for variety
+    shuffle(items);
+    itemIndex = -1;
+    trackIndex = -1;
+    nextItem();
+  } catch(e) {
+    setNP('Error loading station', e.message, false);
+  }
+}
+
+/* ── Load next archive item & its tracks ─────────────────── */
+async function nextItem() {
+  itemIndex++;
+  if (itemIndex >= items.length) { itemIndex = 0; shuffle(items); }
+  const item = items[itemIndex];
+  setNP(item.title || item.identifier, item.creator || '', true);
+
+  try {
+    const res = await fetch(`https://archive.org/metadata/${item.identifier}`);
+    const meta = await res.json();
+    tracks = (meta.files || []).filter(f => {
+      const n = (f.name || '').toLowerCase();
+      return n.endsWith('.mp3') || n.endsWith('.ogg') || n.endsWith('.flac') || n.endsWith('.wav');
+    });
+    if (!tracks.length) {
+      // skip items with no audio files
+      if (items.length > 1) { nextItem(); return; }
+      setNP('No playable files', '', false);
+      return;
+    }
+    trackIndex = -1;
+    renderTracklist(item, tracks);
+    nextTrack();
+  } catch(e) {
+    setNP('Error loading tracks', e.message, false);
+  }
+}
+
+/* ── Play control ────────────────────────────────────────── */
+function playTrack(idx) {
+  if (idx < 0 || idx >= tracks.length) return;
+  trackIndex = idx;
+  const item = items[itemIndex];
+  const file = tracks[trackIndex];
+  const src = `https://archive.org/download/${item.identifier}/${encodeURIComponent(file.name)}`;
+  audio.src = src;
+  audio.play().catch(() => {});
+  setNP(file.title || file.name.replace(/\.[^.]+$/,''), item.creator || item.title || '', false);
+  updatePlayIcon();
+  highlightTrack();
+}
+
+function togglePlay() {
+  if (!audio.src) return;
+  if (audio.paused) { audio.play().catch(() => {}); }
+  else { audio.pause(); }
+  updatePlayIcon();
+}
+
+function nextTrack() {
+  if (!tracks.length) { nextItem(); return; }
+  if (trackIndex + 1 < tracks.length) { playTrack(trackIndex + 1); }
+  else { nextItem(); }
+}
+
+function prevTrack() {
+  if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+  if (trackIndex > 0) playTrack(trackIndex - 1);
+}
+
+function seek(e) {
+  if (!audio.duration) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+}
+
+function setVolume(v) { audio.volume = parseFloat(v); }
+
+/* ── Audio events ────────────────────────────────────────── */
+audio.addEventListener('ended', () => nextTrack());
+audio.addEventListener('play', () => updatePlayIcon());
+audio.addEventListener('pause', () => updatePlayIcon());
+audio.addEventListener('timeupdate', () => {
+  const cur = audio.currentTime, dur = audio.duration || 0;
+  document.getElementById('time-cur').textContent = fmt(cur);
+  document.getElementById('time-dur').textContent = fmt(dur);
+  document.getElementById('progress-fill').style.width = dur ? (cur/dur*100)+'%' : '0%';
+});
+audio.addEventListener('error', () => {
+  // skip broken files
+  if (tracks.length > 1) nextTrack();
+});
+
+/* ── UI helpers ──────────────────────────────────────────── */
+function updatePlayIcon() {
+  const playing = !audio.paused && audio.src;
+  document.getElementById('icon-play').style.display  = playing ? 'none' : '';
+  document.getElementById('icon-pause').style.display = playing ? '' : 'none';
+  document.getElementById('np-dot').style.display = playing ? '' : 'none';
+}
+
+function setNP(title, artist, loading) {
+  document.getElementById('np-label-text').textContent = loading ? 'Loading' : 'Now Playing';
+  document.getElementById('np-title').textContent = title;
+  document.getElementById('np-artist').textContent = artist || '\u00a0';
+  if (loading) document.getElementById('np-title').innerHTML = '<span class="spinner"></span>' + title;
+}
+
+function renderTracklist(item, files) {
+  let html = `<table class="track-table"><thead><tr><th class="num">#</th><th>Title</th><th>Duration</th></tr></thead><tbody>`;
+  files.forEach((f, i) => {
+    const name = f.title || f.name.replace(/\.[^.]+$/,'');
+    const dur = f.length ? fmtSec(parseFloat(f.length)) : '--:--';
+    html += `<tr data-idx="${i}" onclick="playTrack(${i})"><td class="num">${i+1}</td><td>${esc(name)}</td><td>${dur}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('tracklist').innerHTML = html;
+}
+
+function showTracklist(arr) { document.getElementById('tracklist').innerHTML = ''; }
+
+function highlightTrack() {
+  document.querySelectorAll('.track-table tr[data-idx]').forEach(r => {
+    r.classList.toggle('active', parseInt(r.dataset.idx) === trackIndex);
+  });
+}
+
+function fmt(s) { if (!s || !isFinite(s)) return '0:00'; const m=Math.floor(s/60),sec=Math.floor(s%60); return m+':'+(sec<10?'0':'')+sec; }
+function fmtSec(s) { return fmt(s); }
+function esc(t) { const d=document.createElement('span'); d.textContent=t; return d.innerHTML; }
+function shuffle(a) { for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} }
+</script>
+</body>
+</html>
