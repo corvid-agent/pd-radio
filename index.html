@@ -223,7 +223,7 @@ async function selectStation(station) {
   audio.pause();
   updatePlayIcon();
 
-  const url = `https://archive.org/advancedsearch.php?q=collection:audio+AND+mediatype:audio+AND+subject:${station.query}&fl=identifier,title,creator&rows=20&output=json&callback=`;
+  const url = `https://archive.org/advancedsearch.php?q=mediatype:audio+AND+subject:${station.query}&fl=identifier,title,creator&rows=20&output=json`;
   try {
     const res = await fetch(url);
     const data = await res.json();
