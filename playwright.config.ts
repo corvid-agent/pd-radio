@@ -4,15 +4,16 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   retries: 1,
+  workers: 2,
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:4181',
     headless: true,
     viewport: { width: 1280, height: 720 },
   },
   webServer: {
-    command: 'npx serve -l 3000 -s .',
-    url: 'http://localhost:3000',
-    reuseExistingServer: false,
+    command: 'npx serve -l 4181 -s .',
+    url: 'http://localhost:4181',
+    reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },
   projects: [
